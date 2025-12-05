@@ -53,22 +53,64 @@ process_loop:
 
             mov r10, digit_buffer + 20
             sub r10, r9                  ; r10 = digit count
-            test r10, 1                  ; is low bit set?
-            jnz not_doubled              ; odd length, skip
 
-            mov rcx, r10
-            shr rcx, 1                   ; rcx = half length
+            ; Try each pattern length from 1 to digit_count/2
+            mov rbx, 1                   ; rbx = pattern length to try
 
-            mov rsi, r9                  ; first half
-            mov rdi, r9
-            add rdi, rcx                 ; second half
+            try_pattern_length:
+                mov rax, r10
+                shr rax, 1               ; rax = digit_count / 2
+                cmp rbx, rax
+                ja not_invalid           ; tried all lengths, no pattern found
 
-            repe cmpsb
-            jne not_doubled              ; didn't match
+                ; Check if digit_count % pattern_len == 0
+                mov rax, r10
+                xor rdx, rdx
+                div rbx                  ; rax = quotient, rdx = remainder
+                test rdx, rdx
+                jnz next_pattern_length  ; not evenly divisible
 
-            add r8, r14
+                ; rax = number of repetitions needed
+                cmp rax, 2
+                jb next_pattern_length   ; need at least 2 repetitions
 
-        not_doubled:
+                ; Check if the pattern of length rbx repeats
+                mov rcx, rax
+                dec rcx                  ; blocks to compare = repetitions - 1
+                lea rdi, [r9 + rbx]      ; rdi = start of second block
+
+            check_block:
+                test rcx, rcx
+                jz pattern_found         ; all blocks matched!
+
+                ; Compare rbx bytes: [r9] vs [rdi]
+                push rcx
+                push rdi
+                push rbx
+
+                mov rsi, r9              ; always compare against first block
+                mov rcx, rbx
+                repe cmpsb
+
+                pop rbx
+                pop rdi
+                pop rcx
+
+                jne next_pattern_length  ; mismatch, try next length
+
+                add rdi, rbx             ; move to next block
+                dec rcx
+                jmp check_block
+
+            pattern_found:
+                add r8, r14
+                jmp not_invalid
+
+            next_pattern_length:
+                inc rbx
+                jmp try_pattern_length
+
+            not_invalid:
         cmp r14, r15 
         lea r14, [r14+1]
         jne processing_loop 

@@ -1,6 +1,7 @@
 global print_number
 global read_file
 global print_file
+global read_integer
 global input_buffer
 
 section .text
@@ -57,7 +58,29 @@ print_file:
     syscall
     ret
 
+; read_integer: parse an integer from a string
+; Input:  rdi = pointer to string (first char should be a digit)
+; Output: rax = parsed integer value
+;         rdx = pointer to first non-digit character
+; Clobbers: rcx, r8
+read_integer:
+    xor rax, rax             ; rax = accumulator = 0
+    mov rcx, 10              ; multiplier
+    mov rdx, rdi             ; rdx = current position
 
+.read_loop:
+    movzx r8, byte [rdx]     ; load current character
+    sub r8, '0'              ; convert ASCII to digit
+    cmp r8, 9                ; is it 0-9?
+    ja .done                 ; if > 9, not a digit, we're done
+
+    imul rax, rcx            ; accumulator *= 10
+    add rax, r8              ; accumulator += digit
+    inc rdx                  ; move to next character
+    jmp .read_loop
+
+.done:
+    ret
 
 section .bss
 
